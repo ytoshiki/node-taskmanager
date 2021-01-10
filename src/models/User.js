@@ -4,53 +4,58 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Task = require('./Task');
 
-const UserSchema = new mongoose.Schema({
-  name: {
-    required: true,
-    trim: true,
-    type: String
-  },
-  age: {
-    type: Number,
-    default: 0,
-    validate(age) {
-      if (age < 0) {
-        throw new Error(`Age must be a positive number`);
+const UserSchema = new mongoose.Schema(
+  {
+    name: {
+      required: true,
+      trim: true,
+      type: String
+    },
+    age: {
+      type: Number,
+      default: 0,
+      validate(age) {
+        if (age < 0) {
+          throw new Error(`Age must be a positive number`);
+        }
       }
-    }
-  },
-  email: {
-    type: String,
-    unique: true,
-    required: true,
-    trim: true,
-    lowercase: true,
-    validate(email) {
-      if (!validator.isEmail(email)) {
-        throw new Error('Email is invalid');
+    },
+    email: {
+      type: String,
+      unique: true,
+      required: true,
+      trim: true,
+      lowercase: true,
+      validate(email) {
+        if (!validator.isEmail(email)) {
+          throw new Error('Email is invalid');
+        }
       }
-    }
-  },
-  password: {
-    type: String,
-    required: true,
-    trim: true,
-    unique: true,
-    validate(password) {
-      if (password.length < 7) {
-        throw new Error('Password must be at least 7 characters');
+    },
+    password: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+      validate(password) {
+        if (password.length < 7) {
+          throw new Error('Password must be at least 7 characters');
+        }
       }
-    }
-  },
-  tokens: [
-    {
-      token: {
-        type: String,
-        required: true
+    },
+    tokens: [
+      {
+        token: {
+          type: String,
+          required: true
+        }
       }
-    }
-  ]
-});
+    ]
+  },
+  {
+    timestamps: true
+  }
+);
 
 UserSchema.virtual('tasks', {
   ref: 'Task',

@@ -2,10 +2,36 @@ const router = require('express').Router();
 const Task = require('../models/Task');
 const auth = require('../middlewares/auth');
 
+// GET /api/tasks?completed=true
+// GET /api/tasks?limit=10&skip=10
+// GET /api/tasks?sortBy=createdAt_asc || updatedAt_desc
 router.get('/', auth, async (req, res) => {
+  const match = {};
+  const sort = {};
+
+  console.log(req.query);
+
+  if (req.query.completed) {
+    match.completed = req.query.completed === 'true';
+  }
+
+  if (req.query.sortBy) {
+    const sorts = req.query.sortBy.split('_');
+    sort[sorts[0]] = sorts[1] === 'desc' ? -1 : 1;
+  }
+
   try {
-    // const tasks = await Task.find({ user: req.user._id });
-    await req.user.populate('tasks').execPopulate();
+    await req.user
+      .populate({
+        path: 'tasks',
+        match,
+        options: {
+          limit: parseInt(req.query.limit),
+          skip: parseInt(req.query.skip),
+          sort
+        }
+      })
+      .execPopulate();
     res.status(200).json({
       success: true,
       data: req.user.tasks

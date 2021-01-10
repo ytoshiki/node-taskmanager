@@ -17,3 +17,5 @@ const port = process.env.PORT || 5000;
 app.listen(port, () => {
   console.log(`Node server is running on ${port}`);
 });
+
+const User = require('./models/User');

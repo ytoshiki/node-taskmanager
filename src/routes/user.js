@@ -1,14 +1,17 @@
 const router = require('express').Router();
 const User = require('../models/User');
+const auth = require('../middlewares/auth');
 
+// Sign Up
 router.post('/', async (req, res) => {
   const newUser = new User(req.body);
 
   try {
     const user = await newUser.save();
+    const token = await user.generateAuthToken();
     res.status(201).json({
       success: true,
-      data: user
+      data: { user, token }
     });
   } catch (error) {
     res.status(400).json({
@@ -18,45 +21,16 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
-  const _id = req.params.id;
-
-  try {
-    const user = await User.findById(_id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        data: 'User Not found'
-      });
-    }
-    res.status(200).json({
-      success: true,
-      data: user
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error
-    });
-  }
+router.get('/profile', auth, async (req, res) => {
+  await req.user.populate('tasks').execPopulate();
+  console.log(req.user.tasks);
+  res.json({
+    success: true,
+    data: req.user
+  });
 });
 
-router.get('/', async (req, res) => {
-  try {
-    const users = await User.find({});
-    res.status(200).json({
-      success: true,
-      data: users
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error
-    });
-  }
-});
-
-router.patch('/:id', async (req, res) => {
+router.patch('/', auth, async (req, res) => {
   const allowedUpdates = ['name', 'email', 'password', 'age'];
   const requestUpdates = Object.keys(req.body);
 
@@ -72,17 +46,9 @@ router.patch('/:id', async (req, res) => {
   }
 
   try {
-    const user = await User.findById(req.params.id);
-
+    const user = req.user;
     requestUpdates.forEach((update) => (user[update] = req.body[update]));
     await user.save();
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User Not Found'
-      });
-    }
 
     res.status(200).json({
       success: true,
@@ -96,25 +62,80 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/', auth, async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User Not Found'
-      });
-    }
+    await req.user.remove();
 
     res.status(200).json({
       success: true,
-      data: []
+      action: 'delete',
+      data: req.user
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Failed to Delete'
+    });
+  }
+});
+
+// Login
+router.post('/login', async (req, res) => {
+  try {
+    const user = await User.findByCredentials(req.body.email, req.body.password);
+    const token = await user.generateAuthToken();
+    res.status(200).json({
+      success: true,
+      data: { user, token }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error
+    });
+  }
+});
+
+// Logout
+router.post('/logout', auth, async (req, res) => {
+  const token = req.token;
+  const user = req.user;
+
+  try {
+    user.tokens = user.tokens.filter((obj) => {
+      return obj.token !== token;
+    });
+
+    await user.save();
+
+    res.send({
+      success: true,
+      data: []
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: 'Failed to Log Out'
+    });
+  }
+});
+
+router.post('/logoutAll', auth, async (req, res) => {
+  const user = req.user;
+
+  try {
+    user.tokens = [];
+
+    await user.save();
+
+    res.send({
+      success: true,
+      data: []
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: 'Failed to Log Out'
     });
   }
 });

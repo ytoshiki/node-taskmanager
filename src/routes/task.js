@@ -1,12 +1,14 @@
 const router = require('express').Router();
 const Task = require('../models/Task');
+const auth = require('../middlewares/auth');
 
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
-    const tasks = await Task.find({});
+    // const tasks = await Task.find({ user: req.user._id });
+    await req.user.populate('tasks').execPopulate();
     res.status(200).json({
       success: true,
-      data: tasks
+      data: req.user.tasks
     });
   } catch (error) {
     res.status(400).json({
@@ -16,9 +18,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id);
+    const task = await Task.findOne({ _id: req.params.id, user: req.user._id });
+
     if (!task) {
       return res.status(404).json({
         success: false,
@@ -37,10 +40,16 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('', async (req, res) => {
-  const newTask = new Task(req.body);
+router.post('/', auth, async (req, res) => {
+  // req.body.user = req.user._id;
+  const newTask = new Task({
+    ...req.body,
+    user: req.user._id
+  });
+
   try {
     const task = await newTask.save();
+    await task.populate('user').execPopulate();
     res.status(201).json({
       success: true,
       data: task
@@ -53,7 +62,7 @@ router.post('', async (req, res) => {
   }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', auth, async (req, res) => {
   const allowedUpdates = ['description', 'completed'];
   const requestUpdates = Object.keys(req.body);
 
@@ -69,9 +78,7 @@ router.patch('/:id', async (req, res) => {
   }
 
   try {
-    const task = await Task.findById(req.params.id);
-    requestUpdates.forEach((update) => (task[update] = req.body[update]));
-    await task.save();
+    const task = await Task.findOne({ _id: req.params.id, user: req.user._id });
 
     if (!task) {
       return res.status(404).json({
@@ -79,6 +86,9 @@ router.patch('/:id', async (req, res) => {
         message: 'Task Not Found'
       });
     }
+
+    requestUpdates.forEach((update) => (task[update] = req.body[update]));
+    await task.save();
 
     res.status(200).json({
       success: true,
@@ -92,9 +102,9 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const task = await Task.findByIdAndDelete(req.params.id);
+    const task = await Task.findOne({ _id: req.params.id, user: req.user._id });
 
     if (!task) {
       return res.status(404).json({
@@ -102,6 +112,8 @@ router.delete('/:id', async (req, res) => {
         message: 'Task Not Found'
       });
     }
+
+    await task.remove();
 
     res.status(200).json({
       success: true,

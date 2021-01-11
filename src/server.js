@@ -13,9 +13,7 @@ app.use('/api/users', userRouter);
 app.use('/api/tasks', taskRouter);
 
 // Port
-const port = process.env.PORT || 5000;
+const port = process.env.PORT;
 app.listen(port, () => {
   console.log(`Node server is running on ${port}`);
 });
-
-const User = require('./models/User');

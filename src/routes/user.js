@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const User = require('../models/User');
 const auth = require('../middlewares/auth');
+const multer = require('multer');
+const sharp = require('sharp');
 
 // Sign Up
 router.post('/', async (req, res) => {
@@ -137,6 +139,55 @@ router.post('/logoutAll', auth, async (req, res) => {
       success: false,
       message: 'Failed to Log Out'
     });
+  }
+});
+
+const upload = multer({
+  limits: {
+    fileSize: 1000000
+  },
+  fileFilter(req, file, cb) {
+    if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+      cb(new Error('File must be jpg, jpeg, or png'));
+    }
+    cb(null, true);
+  }
+});
+
+router.post(
+  '/profile/avator',
+  auth,
+  upload.single('avator'),
+  async (req, res) => {
+    const user = req.user;
+    const buffer = await sharp(req.file.buffer).resize({ width: 250, height: 250 }).png().toBuffer();
+    user.avator = buffer;
+    await user.save();
+    res.send();
+  },
+  (error, req, res, next) => {
+    res.status(400).send(error.message);
+  }
+);
+
+router.delete('/profile/avator', auth, async (req, res) => {
+  req.user.avator = undefined;
+  await req.user.save();
+  res.send();
+});
+
+router.get('/:id/avator', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user || !user.avator) {
+      throw new Error();
+    }
+
+    res.set('Content-Type', 'image/png');
+    res.send(user.avator);
+  } catch (error) {
+    res.status(404).send();
   }
 });
 
